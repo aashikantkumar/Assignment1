@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+data:
+  PORT: "4000"
+  NODE_ENV: "production"
+  DATABASE_URL: "postgresql://postgres:postgres@db:5432/llm_logging?sslmode=disable"
+  REDIS_URL: "redis://redis:6379"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backend-secret
+type: Opaque
+data:
+  # Base64 encoded values of your API keys (e.g. echo -n 'value' | base64)
+  # Replace with actual base64 keys before applying
+  GROQ_API_KEY: Z3NrX3lvdXJfa2V5X2hlcmU=
+  GEMINI_API_KEY: QUl6YVN5X3lvdXJfa2V5X2hlcmU=
+  INGEST_API_KEY: ZGVmYXVsdC1zZWNyZXQta2V5LTEyMzQ1Njc4OTAxMjM0NTY=
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  labels:
+    app: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: ollive-telemetry-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4000
+          envFrom:
+            - configMapRef:
+                name: backend-config
+          env:
+            - name: GROQ_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: GROQ_API_KEY
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: GEMINI_API_KEY
+            - name: INGEST_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: INGEST_API_KEY
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  labels:
+    app: backend
+spec:
+  ports:
+    - port: 4000
+      targetPort: 4000
+  selector:
+    app: backend
+  type: ClusterIP
